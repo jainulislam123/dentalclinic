@@ -455,12 +455,12 @@ const Portfolio = () => {
             {
               title: "Veneers",
               subtitle: "Cosmetic",
-              img: "https://i.postimg.cc/brmHM73W/unnamed.jpg",
+              img: "https://i.postimg.cc/vTvDbdh3/Gemini-Generated-Image-oxyrnyoxyrnyoxyr.png",
             },
             {
               title: "Whitening",
               subtitle: "Brightening",
-              img: "https://i.postimg.cc/CxQNNLGT/Whiting.png",
+              img: "https://i.postimg.cc/sDKKMJ1M/Whiting.png",
             },
             {
               title: "Aligners",
