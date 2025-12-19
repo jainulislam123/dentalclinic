@@ -26,11 +26,11 @@ import {
   Share2,
   LogOut,
   Upload,
-  AlertTriangle, // Added Alert icon
+  AlertTriangle,
 } from "lucide-react";
 
 // --- Firebase Imports ---
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getAuth,
   signInAnonymously,
@@ -43,9 +43,10 @@ import {
   setDoc,
   onSnapshot,
   collection,
+  getDoc,
 } from "firebase/firestore";
 
-// --- Data Fallback ---
+// --- Data Fallback (Default Data) ---
 const initialPortfolio = [
   {
     id: 1,
@@ -262,7 +263,7 @@ const Navbar = ({ onViewChange, currentView }) => {
 };
 
 // --- Admin Component ---
-const AdminPanel = ({ items, onSave, isConfigured }) => {
+const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [newItem, setNewItem] = useState({ title: "", subtitle: "", img: "" });
@@ -273,11 +274,10 @@ const AdminPanel = ({ items, onSave, isConfigured }) => {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (password === "1234") {
-      // Simple Password
+    if (password === "tofajjal@shop") {
       setIsAuthenticated(true);
     } else {
-      alert("Wrong Password! Try '1234'");
+      alert("Wrong Password! remember");
     }
   };
 
@@ -395,6 +395,7 @@ const AdminPanel = ({ items, onSave, isConfigured }) => {
           </div>
         </div>
 
+        {/* --- Error Warning --- */}
         {!isConfigured && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
             <div className="flex">
@@ -402,12 +403,22 @@ const AdminPanel = ({ items, onSave, isConfigured }) => {
                 <AlertTriangle className="h-5 w-5 text-yellow-400" />
               </div>
               <div className="ml-3">
-                <p className="text-sm text-yellow-700">
-                  You are in <strong>Demo Mode</strong>. Changes will not be
-                  saved to the database because Firebase is not configured. To
-                  fix this, get your config from Firebase Console and paste it
-                  in <code>dental_clinic.jsx</code>.
+                <p className="text-sm text-yellow-700 font-bold">
+                  Connection Issue:
                 </p>
+                <p className="text-sm text-yellow-700">
+                  {authError
+                    ? `Auth Error: ${authError}`
+                    : "Firebase not configured or auth failed."}
+                </p>
+                {authError &&
+                  (authError.includes("auth/operation-not-allowed") ||
+                    authError.includes("auth/configuration-not-found")) && (
+                    <p className="text-sm text-red-600 mt-2 font-bold">
+                      👉 Go to Firebase Console &gt; Authentication &gt; Get
+                      Started &gt; Sign-in method &gt; Enable "Anonymous".
+                    </p>
+                  )}
               </div>
             </div>
           </div>
@@ -459,7 +470,7 @@ const AdminPanel = ({ items, onSave, isConfigured }) => {
             </div>
 
             <button className="md:col-span-3 bg-teal-500 text-white py-3 rounded-lg font-bold hover:bg-teal-600 shadow-md transition-all mt-2">
-              Add to Live Portfolio
+              {isConfigured ? "Add to Live Portfolio" : "Add to Demo Portfolio"}
             </button>
           </form>
         </div>
@@ -696,7 +707,6 @@ const About = () => {
             <div className="absolute -top-10 -left-10 w-40 h-40 bg-teal-100 rounded-full blur-3xl -z-10"></div>
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
               <img
-                // src="https://images.unsplash.com/photo-1609840114035-3c981b782dfe?q=80&w=800&auto=format&fit=crop"
                 src="https://i.postimg.cc/RZMRZZ3v/Whats-App-Image-2025-12-15-at-6-28-36-PM.jpg"
                 alt="Dental Team"
                 className="w-full h-auto object-cover"
@@ -722,7 +732,7 @@ const About = () => {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
-            <span className="text-teal-500 font-bold tracking-wider uppercase  bg-teal-50 px-3 py-1 rounded-full text-2xl">
+            <span className="text-teal-500 font-bold tracking-wider uppercase bg-teal-50 px-3 py-1 rounded-full text-2xl">
               With Dr. Tofajjal Hossain And team
             </span>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-6 mb-6">
@@ -810,22 +820,22 @@ const Services = () => {
     {
       icon: Calendar,
       title: "Extractions",
-      desc: "natural-looking solutions for missing teeth using 3D guided technology issues and straightness.",
+      desc: "Safe and comfortable tooth extraction procedures when restoration isn't possible.",
     },
     {
       icon: Smile,
       title: "Dentures & Bridges",
-      desc: "natural-looking solutions for missing teeth using 3D guided technology issues and straightness.",
+      desc: "Custom-fitted dentures and bridges to restore your smile and ability to chew comfortably.",
     },
     {
       icon: Stethoscope,
       title: "Oral Surgery",
-      desc: "Permanent, natural-looking solutions for missing teeth using 3D guided technology.",
+      desc: "Specialized surgical procedures for complex dental issues, performed with care.",
     },
     {
       icon: ShieldCheck,
       title: "Bonding",
-      desc: "Invisible aligners and traditional braces to correct bite issues and straightness.",
+      desc: "Quick and effective repair for chipped or cracked teeth using composite resin.",
     },
   ];
 
@@ -1260,154 +1270,138 @@ const DentalClinic = () => {
   const [view, setView] = useState("home");
   const [portfolioItems, setPortfolioItems] = useState(initialPortfolio);
   const [user, setUser] = useState(null);
-  const [isConfigured, setIsConfigured] = useState(true);
+  const [isConfigured, setIsConfigured] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
+  // Initialize Firebase Safely
   useEffect(() => {
-    // Check if running on GitHub/Production with placeholder config
-    // In Canvas: __firebase_config IS defined, so this block runs correctly
-    // On GitHub: __firebase_config IS undefined, so it uses fallback
-    let firebaseConfig;
-    let isDemoMode = false;
-
-    if (typeof __firebase_config !== "undefined") {
-      // Canvas Environment
-      firebaseConfig = JSON.parse(__firebase_config);
-    } else {
-      // Production Environment (GitHub/Netlify)
-      // IMPORTANT: Replace this object with your actual Firebase config!
-      firebaseConfig = {
+    const initFirebase = async () => {
+      // 👇👇👇 YOUR HARDCODED CONFIG 👇👇👇
+      const productionConfig = {
         apiKey: "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64",
         authDomain: "dentalclinic-554d1.firebaseapp.com",
         projectId: "dentalclinic-554d1",
         storageBucket: "dentalclinic-554d1.firebasestorage.app",
         messagingSenderId: "1011829032842",
         appId: "1:1011829032842:web:19116941daeb8ec6126a73",
-        measurementId: "G-XPDMWKRCCF",
       };
 
-      // If user hasn't replaced the placeholder, mark as unconfigured
-      if (firebaseConfig.apiKey === "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64") {
-        isDemoMode = true;
-        setIsConfigured(false);
-        console.warn("Firebase not configured. Running in demo mode.");
-      }
-    }
+      let configToUse;
 
-    // Only initialize if not in demo mode (to avoid crash)
-    if (!isDemoMode) {
+      // 1. Determine priority: Hardcoded > Environment
+      // If user replaced the placeholder with a real key (longer than 15 chars), use it.
+      if (productionConfig.apiKey && productionConfig.apiKey.length > 20) {
+        configToUse = productionConfig;
+      } else if (typeof __firebase_config !== "undefined") {
+        configToUse = JSON.parse(__firebase_config);
+      } else {
+        console.warn("No valid Firebase config found.");
+        return;
+      }
+
+      // 2. Initialize App
       try {
-        const app = initializeApp(firebaseConfig);
+        // Prevent duplicate initialization
+        let app;
+        if (getApps().length === 0) {
+          app = initializeApp(configToUse);
+        } else {
+          app = getApp(); // Use existing default app
+        }
+
         const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId =
-          typeof __app_id !== "undefined" ? __app_id : "default-app-id";
 
-        // Auth Logic
-        const initAuth = async () => {
-          if (
-            typeof __initial_auth_token !== "undefined" &&
-            __initial_auth_token
-          ) {
-            await signInWithCustomToken(auth, __initial_auth_token);
+        // 3. Authenticate
+        // Check if we are already signed in to avoid re-triggering auth flow
+        onAuthStateChanged(auth, (u) => {
+          if (u) {
+            setUser(u);
+            setIsConfigured(true);
+            setAuthError(null);
           } else {
-            await signInAnonymously(auth);
+            // Only try to sign in if not signed in
+            signInAnonymously(auth).catch((error) => {
+              console.error("Auth Failed:", error);
+
+              // Handle specific "auth not enabled" error
+              let errorMessage = error.message;
+              if (
+                error.code === "auth/configuration-not-found" ||
+                error.message.includes("configuration-not-found")
+              ) {
+                errorMessage =
+                  "Auth not enabled. Go to Firebase Console -> Authentication -> Get Started.";
+              }
+
+              setAuthError(errorMessage);
+              setIsConfigured(false);
+            });
           }
-        };
-        initAuth();
-
-        // Auth Listener
-        onAuthStateChanged(auth, (u) => setUser(u));
-
-        // Data Listener
-        // Note: We need 'user' for this, but we can't use 'user' dependency here easily
-        // without re-initializing app. So we set up listener inside another effect
-        // or pass db instance to state. For simplicity in this fix,
-        // we will assume if app inits, we can use it.
-
-        // To properly handle the db instance in React state to use in other effects:
-        // This is a simplified fix to prevent the crash first.
-      } catch (e) {
-        console.error("Firebase init failed:", e);
+        });
+      } catch (error) {
+        console.error("Firebase Initialization Failed:", error);
+        setAuthError(error.message);
         setIsConfigured(false);
       }
-    }
+    };
+
+    initFirebase();
   }, []);
 
-  // Separate effect for Data Sync that depends on 'user'
-  // We need to re-initialize app/db reference here if we want to use it,
-  // or better: move init logic outside or use a context.
-  // For this single-file fix, we will re-derive config to get db instance safely.
+  // Sync Data
   useEffect(() => {
-    if (!isConfigured) return;
+    if (!user) return; // Wait for auth
 
-    // Re-get db instance (safe because initializeApp is singleton-like)
-    let db;
-    let appId = "default-app-id";
     try {
-      const firebaseConfig =
-        typeof __firebase_config !== "undefined"
-          ? JSON.parse(__firebase_config)
-          : { apiKey: "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64" };
-      if (firebaseConfig.apiKey === "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64")
-        return;
+      const db = getFirestore();
+      // Use Hardcoded App ID for consistency if needed, else fallback
+      const appId = "dental-clinic-app"; // Using a consistent ID for your app data
 
-      // We assume app is already initialized in previous effect
-      // We get the app instance
-      const app = initializeApp(firebaseConfig); // This returns existing app if already initialized
-      db = getFirestore(app);
-      appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
-    } catch (e) {
-      return;
-    }
-
-    // Subscribe
-    const unsubscribe = onSnapshot(
-      collection(db, "artifacts", appId, "public", "data", "portfolio"),
-      (snapshot) => {
-        const items = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        if (items.length > 0) {
-          setPortfolioItems(items);
+      const unsubscribe = onSnapshot(
+        doc(db, "artifacts", appId, "public", "data", "portfolio_list", "main"),
+        (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            if (data.items && Array.isArray(data.items)) {
+              setPortfolioItems(data.items);
+            }
+          }
+        },
+        (error) => {
+          console.error("Data Sync Error:", error);
+          if (error.code === "permission-denied") {
+            setAuthError("Permission Denied (Check Firestore Rules)");
+          }
         }
-      },
-      (error) => {
-        // Ignore permission errors in console
-        if (error.code !== "permission-denied") console.error(error);
-      }
-    );
-    return () => unsubscribe();
-  }, [isConfigured]); // Run when config status is determined
+      );
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.log("Error setting up listener", e);
+    }
+  }, [user]);
 
   const handleSaveItems = async (newItems) => {
-    if (!isConfigured) {
+    setPortfolioItems(newItems); // Optimistic
+
+    if (!isConfigured || !user) {
       alert(
-        "Demo Mode: Changes are saved locally only. Configure Firebase to save permanently."
+        "Cannot Save: Firebase is not connected or Auth failed. Check the Admin panel for details."
       );
-      setPortfolioItems(newItems);
       return;
     }
 
-    // Re-get db (simplified)
-    const firebaseConfig =
-      typeof __firebase_config !== "undefined"
-        ? JSON.parse(__firebase_config)
-        : {};
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
-
-    // Optimistic
-    setPortfolioItems(newItems);
-
     try {
+      const db = getFirestore();
+      const appId = "dental-clinic-app";
+
       await setDoc(
-        doc(db, "artifacts", appId, "public", "data", "portfolio", "main_list"),
+        doc(db, "artifacts", appId, "public", "data", "portfolio_list", "main"),
         { items: newItems }
       );
     } catch (error) {
       console.error("Save error:", error);
+      alert(`Failed to save: ${error.message}`);
     }
   };
 
@@ -1415,12 +1409,9 @@ const DentalClinic = () => {
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900">
       {/* Configuration Warning Banner for Admin */}
       {!isConfigured && view === "admin" && (
-        <div className="bg-orange-600 text-white px-4 py-2 text-center text-sm font-bold">
-          ⚠️ Site is in Demo Mode. Database is NOT connected.
-          <span className="hidden md:inline">
-            {" "}
-            (Edit dental_clinic.jsx to add Firebase Config)
-          </span>
+        <div className="bg-red-600 text-white px-4 py-2 text-center text-sm font-bold">
+          ⚠️ Database Not Connected.
+          {authError && <span className="block text-xs mt-1">{authError}</span>}
         </div>
       )}
 
@@ -1431,6 +1422,7 @@ const DentalClinic = () => {
           items={portfolioItems}
           onSave={handleSaveItems}
           isConfigured={isConfigured}
+          authError={authError}
         />
       ) : (
         <main>
