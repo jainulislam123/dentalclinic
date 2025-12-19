@@ -274,10 +274,10 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (password === "tofajjal@shop") {
+    if (password === "toffa@shop") {
       setIsAuthenticated(true);
     } else {
-      alert("Wrong Password! remember");
+      alert("Wrong Password! remember!!!'");
     }
   };
 
@@ -413,11 +413,19 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
                 </p>
                 {authError &&
                   (authError.includes("auth/operation-not-allowed") ||
-                    authError.includes("auth/configuration-not-found")) && (
-                    <p className="text-sm text-red-600 mt-2 font-bold">
-                      👉 Go to Firebase Console &gt; Authentication &gt; Get
-                      Started &gt; Sign-in method &gt; Enable "Anonymous".
-                    </p>
+                    authError.includes("auth/configuration-not-found") ||
+                    authError.includes("auth/unauthorized-domain")) && (
+                    <div className="text-sm text-red-600 mt-2 font-bold space-y-1">
+                      <p>
+                        👉 Step 1: Go to Firebase Console &gt; Authentication
+                        &gt; Get Started &gt; Enable "Anonymous".
+                      </p>
+                      <p>
+                        👉 Step 2: Go to Authentication &gt; Settings &gt;
+                        Authorized Domains &gt; Add your GitHub domain (e.g.
+                        yourname.github.io).
+                      </p>
+                    </div>
                   )}
               </div>
             </div>
@@ -1301,12 +1309,15 @@ const DentalClinic = () => {
 
       // 2. Initialize App
       try {
-        // Prevent duplicate initialization
         let app;
-        if (getApps().length === 0) {
-          app = initializeApp(configToUse);
+        const appName = "dental-clinic"; // Unique name to avoid conflicts with default app
+
+        // Check if the named app is already initialized
+        if (getApps().some((a) => a.name === appName)) {
+          app = getApp(appName);
         } else {
-          app = getApp(); // Use existing default app
+          // Initialize a named app with YOUR specific configuration
+          app = initializeApp(configToUse, appName);
         }
 
         const auth = getAuth(app);
@@ -1321,7 +1332,10 @@ const DentalClinic = () => {
           } else {
             // Only try to sign in if not signed in
             signInAnonymously(auth).catch((error) => {
-              console.error("Auth Failed:", error);
+              console.warn(
+                "Auth Failed (likely pending enabled in console):",
+                error
+              );
 
               // Handle specific "auth not enabled" error
               let errorMessage = error.message;
@@ -1331,6 +1345,15 @@ const DentalClinic = () => {
               ) {
                 errorMessage =
                   "Auth not enabled. Go to Firebase Console -> Authentication -> Get Started.";
+              } else if (error.code === "auth/operation-not-allowed") {
+                errorMessage =
+                  "Anonymous Auth not enabled. Go to Firebase Console -> Authentication -> Sign-in method.";
+              } else if (
+                error.code === "auth/unauthorized-domain" ||
+                error.message.includes("unauthorized-domain")
+              ) {
+                errorMessage =
+                  "Domain not authorized. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains.";
               }
 
               setAuthError(errorMessage);
@@ -1353,7 +1376,16 @@ const DentalClinic = () => {
     if (!user) return; // Wait for auth
 
     try {
-      const db = getFirestore();
+      // IMPORTANT: Get the SPECIFIC named app instance we initialized
+      let app;
+      try {
+        app = getApp("dental-clinic");
+      } catch (e) {
+        // Fallback (should rarely happen if useEffect runs in order)
+        return;
+      }
+
+      const db = getFirestore(app);
       // Use Hardcoded App ID for consistency if needed, else fallback
       const appId = "dental-clinic-app"; // Using a consistent ID for your app data
 
@@ -1392,7 +1424,9 @@ const DentalClinic = () => {
     }
 
     try {
-      const db = getFirestore();
+      // IMPORTANT: Get the SPECIFIC named app instance
+      const app = getApp("dental-clinic");
+      const db = getFirestore(app);
       const appId = "dental-clinic-app";
 
       await setDoc(
