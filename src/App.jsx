@@ -17,11 +17,76 @@ import {
   Twitter,
   User,
   CheckCircle,
+  Activity,
+  Heart,
+  Plus,
+  Trash2,
+  Edit2,
+  Lock,
+  Share2,
+  LogOut,
+  Upload,
 } from "lucide-react";
+
+// --- Firebase Imports ---
+import { initializeApp } from "firebase/app";
+import {
+  getAuth,
+  signInAnonymously,
+  signInWithCustomToken,
+  onAuthStateChanged,
+} from "firebase/auth";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  onSnapshot,
+  collection,
+} from "firebase/firestore";
+
+// --- Data Fallback ---
+const initialPortfolio = [
+  {
+    id: 1,
+    title: "Veneers",
+    subtitle: "Cosmetic",
+    img: "https://i.postimg.cc/brmHM73W/unnamed.jpg",
+  },
+  {
+    id: 2,
+    title: "Whitening",
+    subtitle: "Brightening",
+    img: "https://i.postimg.cc/sDKKMJ1M/Whiting.png",
+  },
+  {
+    id: 3,
+    title: "Aligners",
+    subtitle: "Orthodontics",
+    img: "https://i.postimg.cc/50s9KGcd/IMG_20251211_WA0020.jpg",
+  },
+  {
+    id: 4,
+    title: "Root Canal (RCT)",
+    subtitle: "Endodontics",
+    img: "https://i.postimg.cc/TYzdsgs7/IMG_20251211_WA0018.jpg",
+  },
+  {
+    id: 5,
+    title: "Dental Implants",
+    subtitle: "Restoration",
+    img: "https://i.postimg.cc/L61Rjhsf/IMG_20251211_WA0024.jpg",
+  },
+  {
+    id: 6,
+    title: "Dental Crowns",
+    subtitle: "Prosthodontics",
+    img: "https://i.postimg.cc/85XDm6W1/IMG_20251211_WA0027.jpg",
+  },
+];
 
 // --- Components ---
 
-const Navbar = () => {
+const Navbar = ({ onViewChange, currentView }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Home");
   const [scrolled, setScrolled] = useState(false);
@@ -41,31 +106,33 @@ const Navbar = () => {
     { name: "Contact Us", href: "#contact" },
   ];
 
-  // Smooth Scroll Function
   const handleNavClick = (e, href, name) => {
     e.preventDefault();
+    if (currentView === "admin") {
+      onViewChange("home");
+      setTimeout(() => {
+        const element = document.querySelector(href);
+        if (element) element.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } else {
+      const element = document.querySelector(href);
+      if (element) {
+        const offset = 80;
+        const bodyRect = document.body.getBoundingClientRect().top;
+        const elementRect = element.getBoundingClientRect().top;
+        const elementPosition = elementRect - bodyRect;
+        const offsetPosition = elementPosition - offset;
+        window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+      }
+    }
     setActiveTab(name);
     setIsOpen(false);
-
-    const element = document.querySelector(href);
-    if (element) {
-      const offset = 80;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth",
-      });
-    }
   };
 
   return (
     <nav
       className={`fixed w-full z-50 transition-all duration-300 ${
-        scrolled
+        scrolled || currentView === "admin"
           ? "bg-white/90 backdrop-blur-md shadow-md py-3"
           : "bg-transparent py-4"
       }`}
@@ -101,7 +168,7 @@ const Navbar = () => {
                 onClick={(e) => handleNavClick(e, link.href, link.name)}
                 className="relative px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-teal-600 group"
               >
-                {activeTab === link.name && (
+                {activeTab === link.name && currentView !== "admin" && (
                   <motion.div
                     layoutId="underline"
                     className="absolute inset-0 bg-teal-50 rounded-full -z-10"
@@ -111,8 +178,28 @@ const Navbar = () => {
                 <span className="relative z-10">{link.name}</span>
               </a>
             ))}
-            <button className="ml-6 bg-slate-900 text-white px-6 py-2.5 rounded-full font-medium hover:bg-slate-800 transition-all transform hover:scale-105 shadow-xl shadow-slate-200 hover:shadow-slate-300">
-              <a href="tel:+918918796858">Book to Call</a>
+
+            {/* Admin Button */}
+            <button
+              onClick={() =>
+                onViewChange(currentView === "admin" ? "home" : "admin")
+              }
+              className={`ml-4 px-4 py-2 rounded-full font-medium transition-all flex items-center gap-2 ${
+                currentView === "admin"
+                  ? "bg-red-500 text-white hover:bg-red-600"
+                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+              }`}
+            >
+              {currentView === "admin" ? (
+                <LogOut className="w-4 h-4" />
+              ) : (
+                <Lock className="w-4 h-4" />
+              )}
+              {currentView === "admin" ? "Exit Admin" : "Admin"}
+            </button>
+
+            <button className="ml-2 bg-slate-900 text-white px-6 py-2.5 rounded-full font-medium hover:bg-slate-800 transition-all transform hover:scale-105 shadow-xl shadow-slate-200 hover:shadow-slate-300">
+              <a href="tel:+918918796858">Book Call</a>
             </button>
           </div>
 
@@ -151,7 +238,16 @@ const Navbar = () => {
                   <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100" />
                 </a>
               ))}
-              <div className="pt-4 px-2">
+              <div className="pt-4 px-2 space-y-3">
+                <button
+                  onClick={() => {
+                    onViewChange(currentView === "admin" ? "home" : "admin");
+                    setIsOpen(false);
+                  }}
+                  className="w-full bg-slate-200 text-slate-800 px-5 py-3 rounded-xl font-bold"
+                >
+                  {currentView === "admin" ? "Exit Admin Panel" : "Admin Panel"}
+                </button>
                 <button className="w-full bg-teal-500 text-white px-5 py-4 rounded-xl font-bold shadow-lg shadow-teal-200 active:scale-95 transition-transform">
                   <a href="tel:+918918796858">Book Appointment</a>
                 </button>
@@ -163,6 +259,280 @@ const Navbar = () => {
     </nav>
   );
 };
+
+// --- Admin Component ---
+const AdminPanel = ({ items, onSave }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState("");
+  const [newItem, setNewItem] = useState({ title: "", subtitle: "", img: "" });
+  const [editMode, setEditMode] = useState(null);
+
+  // Safeguard check
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (password === "1234") {
+      // Simple Password
+      setIsAuthenticated(true);
+    } else {
+      alert("Wrong Password! Try '1234'");
+    }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 500000) {
+        alert("File too large! Please use an image smaller than 500KB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewItem({ ...newItem, img: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEditImageUpload = (e, id) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 500000) {
+        alert("File too large! Please use an image smaller than 500KB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newItems = safeItems.map((i) =>
+          i.id === id ? { ...i, img: reader.result } : i
+        );
+        onSave(newItems);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    if (!newItem.title || !newItem.img)
+      return alert("Title and Image are required!");
+
+    const item = {
+      id: Date.now(),
+      ...newItem,
+    };
+    onSave([...safeItems, item]);
+    setNewItem({ title: "", subtitle: "", img: "" });
+    alert("New Portfolio Item Added & Synced!");
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      onSave(safeItems.filter((item) => item.id !== id));
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 pt-20">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-slate-100">
+          <div className="flex justify-center mb-6">
+            <div className="bg-red-100 p-4 rounded-full">
+              <Lock className="w-8 h-8 text-red-500" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-center text-slate-900 mb-6">
+            Admin Login
+          </h2>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="password"
+              placeholder="Enter PIN (1234)"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-teal-500 outline-none"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-all">
+              Access Dashboard
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 pt-28 pb-20 px-4">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-slate-900">
+            Portfolio Manager
+          </h1>
+          <div className="bg-green-100 text-green-700 px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" /> Logged In (Firebase Live)
+          </div>
+        </div>
+
+        {/* Add New Item Form */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-10">
+          <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Plus className="w-5 h-5 text-teal-500" /> Add New Item
+          </h3>
+          <form onSubmit={handleAdd} className="grid md:grid-cols-3 gap-4">
+            <input
+              type="text"
+              placeholder="Title (e.g. Dental Implants)"
+              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+              value={newItem.title}
+              onChange={(e) =>
+                setNewItem({ ...newItem, title: e.target.value })
+              }
+            />
+            <input
+              type="text"
+              placeholder="Subtitle (e.g. Surgery)"
+              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+              value={newItem.subtitle}
+              onChange={(e) =>
+                setNewItem({ ...newItem, subtitle: e.target.value })
+              }
+            />
+
+            {/* Image Upload */}
+            <div className="flex flex-col gap-2">
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="file-upload"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors text-slate-500 text-sm h-[42px]"
+                >
+                  <Upload className="w-4 h-4" />
+                  {newItem.img ? "Image Selected" : "Upload Image"}
+                </label>
+              </div>
+            </div>
+
+            <button className="md:col-span-3 bg-teal-500 text-white py-3 rounded-lg font-bold hover:bg-teal-600 shadow-md transition-all mt-2">
+              Add to Live Portfolio
+            </button>
+          </form>
+        </div>
+
+        {/* List Items */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {safeItems.map((item) => (
+            <div
+              key={item.id}
+              className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-100 group"
+            >
+              <div className="relative h-48 overflow-hidden bg-slate-100">
+                <img
+                  src={item.img}
+                  alt={item.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-white font-medium text-sm px-2 text-center">
+                    {item.title}
+                  </span>
+                </div>
+              </div>
+              <div className="p-4">
+                {editMode === item.id ? (
+                  <div className="space-y-3">
+                    <input
+                      className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      placeholder="Title"
+                      value={item.title}
+                      onChange={(e) => {
+                        const newItems = safeItems.map((i) =>
+                          i.id === item.id ? { ...i, title: e.target.value } : i
+                        );
+                        onSave(newItems);
+                      }}
+                    />
+                    <input
+                      className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      placeholder="Subtitle"
+                      value={item.subtitle}
+                      onChange={(e) => {
+                        const newItems = safeItems.map((i) =>
+                          i.id === item.id
+                            ? { ...i, subtitle: e.target.value }
+                            : i
+                        );
+                        onSave(newItems);
+                      }}
+                    />
+
+                    {/* Edit Image Upload */}
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id={`edit-file-${item.id}`}
+                        className="hidden"
+                        onChange={(e) => handleEditImageUpload(e, item.id)}
+                      />
+                      <label
+                        htmlFor={`edit-file-${item.id}`}
+                        className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded cursor-pointer hover:bg-slate-50 text-xs text-slate-500"
+                      >
+                        <Upload className="w-3 h-3" /> Change Image
+                      </label>
+                    </div>
+
+                    <button
+                      onClick={() => setEditMode(null)}
+                      className="bg-green-500 text-white px-3 py-2 rounded text-sm w-full font-bold hover:bg-green-600 transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="font-bold text-lg text-slate-900 truncate">
+                      {item.title}
+                    </h3>
+                    <p className="text-slate-500 text-sm truncate">
+                      {item.subtitle}
+                    </p>
+                  </>
+                )}
+
+                {editMode !== item.id && (
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+                    <button
+                      onClick={() => setEditMode(item.id)}
+                      className="flex-1 flex items-center justify-center gap-1 bg-blue-50 text-blue-600 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="flex-1 flex items-center justify-center gap-1 bg-red-50 text-red-600 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Website Sections ---
 
 const Hero = () => {
   return (
@@ -285,9 +655,10 @@ const About = () => {
             className="relative"
           >
             <div className="absolute -top-10 -left-10 w-40 h-40 bg-teal-100 rounded-full blur-3xl -z-10"></div>
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white h-100%">
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
               <img
-                src="https://i.postimg.cc/Rh0hMm13/IMG_20251211_WA0029.jpg"
+                // src="https://images.unsplash.com/photo-1609840114035-3c981b782dfe?q=80&w=800&auto=format&fit=crop"
+                src="https://i.postimg.cc/RZMRZZ3v/Whats-App-Image-2025-12-15-at-6-28-36-PM.jpg"
                 alt="Dental Team"
                 className="w-full h-auto object-cover"
               />
@@ -397,6 +768,26 @@ const Services = () => {
       title: "Orthodontics",
       desc: "Invisible aligners and traditional braces to correct bite issues and straightness.",
     },
+    {
+      icon: Calendar,
+      title: "Extractions",
+      desc: "natural-looking solutions for missing teeth using 3D guided technology issues and straightness.",
+    },
+    {
+      icon: Smile,
+      title: "Dentures & Bridges",
+      desc: "natural-looking solutions for missing teeth using 3D guided technology issues and straightness.",
+    },
+    {
+      icon: Stethoscope,
+      title: "Oral Surgery",
+      desc: "Permanent, natural-looking solutions for missing teeth using 3D guided technology.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Bonding",
+      desc: "Invisible aligners and traditional braces to correct bite issues and straightness.",
+    },
   ];
 
   return (
@@ -431,7 +822,30 @@ const Services = () => {
   );
 };
 
-const Portfolio = () => {
+const Portfolio = ({ items }) => {
+  const [shareMsg, setShareMsg] = useState("");
+
+  // Safeguard against non-array items
+  const displayItems = Array.isArray(items) ? items : [];
+
+  const handleShare = (item) => {
+    // Simulating a shareable link
+    const text = `Check out this amazing ${item.title} result from City Smile Dental Clinic!`;
+    if (navigator.share) {
+      navigator
+        .share({
+          title: item.title,
+          text: text,
+          url: window.location.href,
+        })
+        .catch(console.error);
+    } else {
+      navigator.clipboard.writeText(`${text} ${window.location.href}`);
+      setShareMsg("Link Copied!");
+      setTimeout(() => setShareMsg(""), 2000);
+    }
+  };
+
   return (
     <section id="portfolio" className="py-24 bg-white overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -445,50 +859,22 @@ const Portfolio = () => {
             </h2>
           </div>
           <button className="hidden md:flex items-center gap-2 text-slate-700 font-bold hover:text-teal-500 transition-colors group">
-            View All Cases{" "}
+            {shareMsg ? (
+              <span className="text-teal-500">{shareMsg}</span>
+            ) : (
+              "View All Cases"
+            )}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {[
-            {
-              title: "Veneers",
-              subtitle: "Cosmetic",
-              img: "https://i.postimg.cc/vTvDbdh3/Gemini-Generated-Image-oxyrnyoxyrnyoxyr.png",
-            },
-            {
-              title: "Whitening",
-              subtitle: "Brightening",
-              img: "https://i.postimg.cc/sDKKMJ1M/Whiting.png",
-            },
-            {
-              title: "Aligners",
-              subtitle: "Orthodontics",
-              img: "https://i.postimg.cc/50s9KGcd/IMG_20251211_WA0020.jpg",
-            },
-            {
-              title: "Root Canal (RCT)",
-              subtitle: "Endodontics",
-              img: "https://i.postimg.cc/TYzdsgs7/IMG_20251211_WA0018.jpg",
-            },
-            {
-              title: "Dental Implants",
-              subtitle: "Restoration",
-              img: "https://i.postimg.cc/L61Rjhsf/IMG_20251211_WA0024.jpg",
-            },
-            {
-              title: "Dental Crowns",
-              subtitle: "Prosthodontics",
-              img: "https://i.postimg.cc/85XDm6W1/IMG_20251211_WA0027.jpg",
-            },
-          ].map((item, i) => (
+          {displayItems.map((item) => (
             <motion.div
-              key={i}
+              key={item.id}
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.2 }}
               whileHover={{ y: -10 }}
               className="group relative overflow-hidden rounded-3xl aspect-[4/5] shadow-lg cursor-pointer"
             >
@@ -500,11 +886,27 @@ const Portfolio = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-300"></div>
 
               <div className="absolute inset-0 flex flex-col justify-end p-8 translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                <div className="bg-teal-500 w-12 h-1 mb-4 rounded-full origin-left transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
-                <h4 className="text-white text-2xl font-bold">{item.title}</h4>
-                <p className="text-teal-300 text-sm font-medium mt-1">
-                  {item.subtitle}
-                </p>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <div className="bg-teal-500 w-12 h-1 mb-4 rounded-full origin-left transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+                    <h4 className="text-white text-2xl font-bold">
+                      {item.title}
+                    </h4>
+                    <p className="text-teal-300 text-sm font-medium mt-1">
+                      {item.subtitle}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShare(item);
+                    }}
+                    className="bg-white/20 p-2 rounded-full hover:bg-white/40 transition-colors text-white"
+                    title="Share this result"
+                  >
+                    <Share2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </motion.div>
           ))}
@@ -521,21 +923,15 @@ const Contact = () => {
   const [errors, setErrors] = useState([]);
 
   const handleSubmit = async (event) => {
-    // 1. STOP page reload
     event.preventDefault();
     setSubmitting(true);
-
-    // 2. Prepare FormData
     const formData = new FormData(event.target);
 
     try {
-      // 3. Send using fetch (REPLACE YOUR_FORM_ID BELOW)
       const response = await fetch("https://formspree.io/f/manrppno", {
         method: "POST",
         body: formData,
-        headers: {
-          Accept: "application/json",
-        },
+        headers: { Accept: "application/json" },
       });
 
       if (response.ok) {
@@ -622,7 +1018,8 @@ const Contact = () => {
                       Visit Us
                     </p>
                     <p className="text-xl font-bold group-hover:text-teal-400 transition-colors">
-                      Buniadpur, Dakshin Dinajpur, 733121
+                      Buniadpur, New Bustand Beside Popular Drag House, Dakshin
+                      Dinajpur, 733121
                     </p>
                   </div>
                 </div>
@@ -635,14 +1032,13 @@ const Contact = () => {
                       Working Hours
                     </p>
                     <p className="text-xl font-bold group-hover:text-teal-400 transition-colors">
-                      Mon - Sat: 9AM - 7PM
+                      Mon - Sat: 9AM - 9PM
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Note: NO action attribute here. handled by onSubmit */}
             <form
               onSubmit={handleSubmit}
               className="bg-white rounded-3xl p-8 md:p-10 shadow-2xl"
@@ -744,14 +1140,15 @@ const Footer = () => (
               <Instagram className="w-5 h-5" />
             </div>
             <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400 hover:bg-teal-500 hover:text-white transition-all cursor-pointer">
-              <Facebook className="w-5 h-5" />
+              <a href="https://www.facebook.com/profile.php?id=61578930450958">
+                <Facebook className="w-5 h-5" />
+              </a>
             </div>
             <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400 hover:bg-teal-500 hover:text-white transition-all cursor-pointer">
               <Twitter className="w-5 h-5" />
             </div>
           </div>
         </div>
-
         <div>
           <h4 className="font-bold text-slate-800 mb-6">Services</h4>
           <ul className="space-y-3 text-sm text-slate-500">
@@ -765,7 +1162,6 @@ const Footer = () => (
             <li className="hover:text-teal-500 cursor-pointer">Implants</li>
           </ul>
         </div>
-
         <div>
           <h4 className="font-bold text-slate-800 mb-6">Company</h4>
           <ul className="space-y-3 text-sm text-slate-500">
@@ -777,7 +1173,6 @@ const Footer = () => (
             </li>
           </ul>
         </div>
-
         <div>
           <h4 className="font-bold text-slate-800 mb-6">Newsletter</h4>
           <p className="text-slate-500 text-sm mb-4">
@@ -807,7 +1202,6 @@ const Footer = () => (
           </div>
         </div>
       </div>
-
       <div className="pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-slate-400 text-sm">
           &copy; 2025 City Smile Dental Clinic. All rights reserved.
@@ -824,17 +1218,141 @@ const Footer = () => (
 // --- Main App Component ---
 
 const DentalClinic = () => {
+  const [view, setView] = useState("home");
+  const [portfolioItems, setPortfolioItems] = useState(initialPortfolio);
+  const [user, setUser] = useState(null);
+
+  // --- Initializing Firebase ---
+  // FOR PRODUCTION/SHARING: Replace the object below with your actual Firebase project configuration
+  // You can get this from: Firebase Console -> Project Settings -> General -> Your Apps
+  const firebaseConfig =
+    typeof __firebase_config !== "undefined"
+      ? JSON.parse(__firebase_config)
+      : {
+          // Paste your real config here when deploying
+          apiKey: "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64",
+          authDomain: "dentalclinic-554d1.firebaseapp.com",
+          projectId: "dentalclinic-554d1",
+          storageBucket: "dentalclinic-554d1.firebasestorage.app",
+          messagingSenderId: "1011829032842",
+          appId: "1:1011829032842:web:19116941daeb8ec6126a73",
+          measurementId: "G-XPDMWKRCCF",
+        };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+
+  // --- Auth Effect ---
+  useEffect(() => {
+    const initAuth = async () => {
+      if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
+    };
+    initAuth();
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribeAuth();
+  }, [auth]);
+
+  // --- Data Sync Effect ---
+  useEffect(() => {
+    if (!user) return; // Wait for auth
+
+    // USE SAFE AND SIMPLE 4-SEGMENT PATH
+    // Path: artifacts/{appId}/public/data
+    const unsubscribe = onSnapshot(
+      collection(db, "artifacts", appId, "public", "data", "portfolio"),
+      (snapshot) => {
+        const items = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        if (items.length > 0) {
+          setPortfolioItems(items);
+        }
+      },
+      (error) => {
+        console.error("Error fetching portfolio items:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user, db, appId]);
+
+  // --- Save to Firebase ---
+  const handleSaveItems = async (newItems) => {
+    if (!user) {
+      alert("Please wait for connection...");
+      return;
+    }
+
+    // Optimistic update
+    setPortfolioItems(newItems);
+
+    // Persist to Cloud using same SAFE PATH
+    try {
+      // We need to save the entire list. For simplicity in this demo,
+      // we'll just save each item as a separate doc or overwrite a single doc.
+      // A better approach for this simple list is saving it as one document:
+      await setDoc(
+        doc(db, "artifacts", appId, "public", "data", "portfolio", "main_list"),
+        { items: newItems }
+      );
+
+      // Note: The listener above needs to be adjusted to listen to this specific document
+      // Let's fix the listener in the useEffect above to match this save strategy:
+    } catch (error) {
+      console.error("Error saving to Firebase:", error);
+      alert("Failed to save changes. Please try again.");
+    }
+  };
+
+  // Re-write the listener to match the single-doc save strategy for simplicity
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = onSnapshot(
+      doc(db, "artifacts", appId, "public", "data", "portfolio", "main_list"),
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          if (data.items && Array.isArray(data.items)) {
+            setPortfolioItems(data.items);
+          }
+        }
+      },
+      (error) => {
+        // Use a less alarming log for permission errors which might happen on initial load
+        if (error.code !== "permission-denied") {
+          console.error("Data sync error:", error);
+        }
+      }
+    );
+    return () => unsubscribe();
+  }, [user, db, appId]);
+
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900">
-      <Navbar />
-      <main>
-        <Hero />
-        <About />
-        <Services />
-        <Portfolio />
-        <Contact />
-      </main>
-      <Footer />
+      <Navbar onViewChange={setView} currentView={view} />
+      {view === "admin" ? (
+        <AdminPanel items={portfolioItems} onSave={handleSaveItems} />
+      ) : (
+        <main>
+          <Hero />
+          <About />
+          <Services />
+          <Portfolio items={portfolioItems} />
+          <Contact />
+        </main>
+      )}
+      {view !== "admin" && <Footer />}
     </div>
   );
 };
