@@ -27,24 +27,13 @@ import {
   LogOut,
   Upload,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 
 // --- Firebase Imports ---
 import { initializeApp, getApps, getApp } from "firebase/app";
-import {
-  getAuth,
-  signInAnonymously,
-  signInWithCustomToken,
-  onAuthStateChanged,
-} from "firebase/auth";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  onSnapshot,
-  collection,
-  getDoc,
-} from "firebase/firestore";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
 
 // --- Data Fallback (Default Data) ---
 const initialPortfolio = [
@@ -1285,19 +1274,20 @@ const DentalClinic = () => {
   useEffect(() => {
     const initFirebase = async () => {
       // 👇👇👇 YOUR HARDCODED CONFIG 👇👇👇
+      // IMPORTANT: Variable name changed back to 'productionConfig' to match logic below
       const productionConfig = {
-        apiKey: "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64",
-        authDomain: "dentalclinic-554d1.firebaseapp.com",
-        projectId: "dentalclinic-554d1",
-        storageBucket: "dentalclinic-554d1.firebasestorage.app",
-        messagingSenderId: "1011829032842",
-        appId: "1:1011829032842:web:19116941daeb8ec6126a73",
+        apiKey: "AIzaSyAZxojzW9HT83hvINZjUQrrm1YxKGW0ddA",
+        authDomain: "dentalshop-c4b32.firebaseapp.com",
+        projectId: "dentalshop-c4b32",
+        storageBucket: "dentalshop-c4b32.firebasestorage.app",
+        messagingSenderId: "730961871136",
+        appId: "1:730961871136:web:c4aa2cc66e010de8e25745",
+        measurementId: "G-P5XKXD51N6",
       };
 
       let configToUse;
 
       // 1. Determine priority: Hardcoded > Environment
-      // If user replaced the placeholder with a real key (longer than 15 chars), use it.
       if (productionConfig.apiKey && productionConfig.apiKey.length > 20) {
         configToUse = productionConfig;
       } else if (typeof __firebase_config !== "undefined") {
@@ -1446,6 +1436,20 @@ const DentalClinic = () => {
         <div className="bg-red-600 text-white px-4 py-2 text-center text-sm font-bold">
           ⚠️ Database Not Connected.
           {authError && <span className="block text-xs mt-1">{authError}</span>}
+        </div>
+      )}
+
+      {/* GLOBAL ERROR BANNER FOR GITHUB PAGES DEBUGGING - ADDED BY AI */}
+      {!isConfigured && authError && view !== "admin" && (
+        <div className="fixed bottom-0 left-0 right-0 bg-red-600 text-white p-4 text-center text-sm font-bold z-[100] shadow-lg flex items-center justify-center gap-2">
+          <AlertTriangle className="w-5 h-5" />
+          <span>Connection Error: {authError}</span>
+          <button
+            onClick={() => setView("admin")}
+            className="underline ml-2 bg-white/20 px-2 py-1 rounded"
+          >
+            Fix Now
+          </button>
         </div>
       )}
 
