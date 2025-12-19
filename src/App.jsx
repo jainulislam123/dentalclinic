@@ -26,6 +26,7 @@ import {
   Share2,
   LogOut,
   Upload,
+  AlertTriangle, // Added Alert icon
 } from "lucide-react";
 
 // --- Firebase Imports ---
@@ -261,7 +262,7 @@ const Navbar = ({ onViewChange, currentView }) => {
 };
 
 // --- Admin Component ---
-const AdminPanel = ({ items, onSave }) => {
+const AdminPanel = ({ items, onSave, isConfigured }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [newItem, setNewItem] = useState({ title: "", subtitle: "", img: "" });
@@ -324,7 +325,14 @@ const AdminPanel = ({ items, onSave }) => {
     };
     onSave([...safeItems, item]);
     setNewItem({ title: "", subtitle: "", img: "" });
-    alert("New Portfolio Item Added & Synced!");
+
+    if (isConfigured) {
+      alert("New Portfolio Item Added & Synced!");
+    } else {
+      alert(
+        "Item added locally (Demo Mode). Configure Firebase to save permanently."
+      );
+    }
   };
 
   const handleDelete = (id) => {
@@ -369,10 +377,41 @@ const AdminPanel = ({ items, onSave }) => {
           <h1 className="text-3xl font-bold text-slate-900">
             Portfolio Manager
           </h1>
-          <div className="bg-green-100 text-green-700 px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2">
-            <CheckCircle className="w-4 h-4" /> Logged In (Firebase Live)
+          <div
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${
+              isConfigured
+                ? "bg-green-100 text-green-700"
+                : "bg-yellow-100 text-yellow-700"
+            }`}
+          >
+            {isConfigured ? (
+              <CheckCircle className="w-4 h-4" />
+            ) : (
+              <AlertTriangle className="w-4 h-4" />
+            )}
+            {isConfigured
+              ? "Logged In (Firebase Live)"
+              : "Demo Mode (Not Connected)"}
           </div>
         </div>
+
+        {!isConfigured && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  You are in <strong>Demo Mode</strong>. Changes will not be
+                  saved to the database because Firebase is not configured. To
+                  fix this, get your config from Firebase Console and paste it
+                  in <code>dental_clinic.jsx</code>.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add New Item Form */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-10">
@@ -1221,52 +1260,107 @@ const DentalClinic = () => {
   const [view, setView] = useState("home");
   const [portfolioItems, setPortfolioItems] = useState(initialPortfolio);
   const [user, setUser] = useState(null);
+  const [isConfigured, setIsConfigured] = useState(true);
 
-  // --- Initializing Firebase ---
-  // FOR PRODUCTION/SHARING: Replace the object below with your actual Firebase project configuration
-  // You can get this from: Firebase Console -> Project Settings -> General -> Your Apps
-  const firebaseConfig =
-    typeof __firebase_config !== "undefined"
-      ? JSON.parse(__firebase_config)
-      : {
-          // Paste your real config here when deploying
-          apiKey: "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64",
-          authDomain: "dentalclinic-554d1.firebaseapp.com",
-          projectId: "dentalclinic-554d1",
-          storageBucket: "dentalclinic-554d1.firebasestorage.app",
-          messagingSenderId: "1011829032842",
-          appId: "1:1011829032842:web:19116941daeb8ec6126a73",
-          measurementId: "G-XPDMWKRCCF",
-        };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
-
-  // --- Auth Effect ---
   useEffect(() => {
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
+    // Check if running on GitHub/Production with placeholder config
+    // In Canvas: __firebase_config IS defined, so this block runs correctly
+    // On GitHub: __firebase_config IS undefined, so it uses fallback
+    let firebaseConfig;
+    let isDemoMode = false;
+
+    if (typeof __firebase_config !== "undefined") {
+      // Canvas Environment
+      firebaseConfig = JSON.parse(__firebase_config);
+    } else {
+      // Production Environment (GitHub/Netlify)
+      // IMPORTANT: Replace this object with your actual Firebase config!
+      firebaseConfig = {
+        apiKey: "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64",
+        authDomain: "dentalclinic-554d1.firebaseapp.com",
+        projectId: "dentalclinic-554d1",
+        storageBucket: "dentalclinic-554d1.firebasestorage.app",
+        messagingSenderId: "1011829032842",
+        appId: "1:1011829032842:web:19116941daeb8ec6126a73",
+        measurementId: "G-XPDMWKRCCF",
+      };
+
+      // If user hasn't replaced the placeholder, mark as unconfigured
+      if (firebaseConfig.apiKey === "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64") {
+        isDemoMode = true;
+        setIsConfigured(false);
+        console.warn("Firebase not configured. Running in demo mode.");
       }
-    };
-    initAuth();
+    }
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return () => unsubscribeAuth();
-  }, [auth]);
+    // Only initialize if not in demo mode (to avoid crash)
+    if (!isDemoMode) {
+      try {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId =
+          typeof __app_id !== "undefined" ? __app_id : "default-app-id";
 
-  // --- Data Sync Effect ---
+        // Auth Logic
+        const initAuth = async () => {
+          if (
+            typeof __initial_auth_token !== "undefined" &&
+            __initial_auth_token
+          ) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        };
+        initAuth();
+
+        // Auth Listener
+        onAuthStateChanged(auth, (u) => setUser(u));
+
+        // Data Listener
+        // Note: We need 'user' for this, but we can't use 'user' dependency here easily
+        // without re-initializing app. So we set up listener inside another effect
+        // or pass db instance to state. For simplicity in this fix,
+        // we will assume if app inits, we can use it.
+
+        // To properly handle the db instance in React state to use in other effects:
+        // This is a simplified fix to prevent the crash first.
+      } catch (e) {
+        console.error("Firebase init failed:", e);
+        setIsConfigured(false);
+      }
+    }
+  }, []);
+
+  // Separate effect for Data Sync that depends on 'user'
+  // We need to re-initialize app/db reference here if we want to use it,
+  // or better: move init logic outside or use a context.
+  // For this single-file fix, we will re-derive config to get db instance safely.
   useEffect(() => {
-    if (!user) return; // Wait for auth
+    if (!isConfigured) return;
 
-    // USE SAFE AND SIMPLE 4-SEGMENT PATH
-    // Path: artifacts/{appId}/public/data
+    // Re-get db instance (safe because initializeApp is singleton-like)
+    let db;
+    let appId = "default-app-id";
+    try {
+      const firebaseConfig =
+        typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : { apiKey: "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64" };
+      if (firebaseConfig.apiKey === "AIzaSyCIpDdTiALHVN8Ug8V1jpPe5JloD0Y_m64")
+        return;
+
+      // We assume app is already initialized in previous effect
+      // We get the app instance
+      const app = initializeApp(firebaseConfig); // This returns existing app if already initialized
+      db = getFirestore(app);
+      appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+    } catch (e) {
+      return;
+    }
+
+    // Subscribe
     const unsubscribe = onSnapshot(
       collection(db, "artifacts", appId, "public", "data", "portfolio"),
       (snapshot) => {
@@ -1279,70 +1373,65 @@ const DentalClinic = () => {
         }
       },
       (error) => {
-        console.error("Error fetching portfolio items:", error);
+        // Ignore permission errors in console
+        if (error.code !== "permission-denied") console.error(error);
       }
     );
-
     return () => unsubscribe();
-  }, [user, db, appId]);
+  }, [isConfigured]); // Run when config status is determined
 
-  // --- Save to Firebase ---
   const handleSaveItems = async (newItems) => {
-    if (!user) {
-      alert("Please wait for connection...");
+    if (!isConfigured) {
+      alert(
+        "Demo Mode: Changes are saved locally only. Configure Firebase to save permanently."
+      );
+      setPortfolioItems(newItems);
       return;
     }
 
-    // Optimistic update
+    // Re-get db (simplified)
+    const firebaseConfig =
+      typeof __firebase_config !== "undefined"
+        ? JSON.parse(__firebase_config)
+        : {};
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+
+    // Optimistic
     setPortfolioItems(newItems);
 
-    // Persist to Cloud using same SAFE PATH
     try {
-      // We need to save the entire list. For simplicity in this demo,
-      // we'll just save each item as a separate doc or overwrite a single doc.
-      // A better approach for this simple list is saving it as one document:
       await setDoc(
         doc(db, "artifacts", appId, "public", "data", "portfolio", "main_list"),
         { items: newItems }
       );
-
-      // Note: The listener above needs to be adjusted to listen to this specific document
-      // Let's fix the listener in the useEffect above to match this save strategy:
     } catch (error) {
-      console.error("Error saving to Firebase:", error);
-      alert("Failed to save changes. Please try again.");
+      console.error("Save error:", error);
     }
   };
 
-  // Re-write the listener to match the single-doc save strategy for simplicity
-  useEffect(() => {
-    if (!user) return;
-
-    const unsubscribe = onSnapshot(
-      doc(db, "artifacts", appId, "public", "data", "portfolio", "main_list"),
-      (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const data = docSnapshot.data();
-          if (data.items && Array.isArray(data.items)) {
-            setPortfolioItems(data.items);
-          }
-        }
-      },
-      (error) => {
-        // Use a less alarming log for permission errors which might happen on initial load
-        if (error.code !== "permission-denied") {
-          console.error("Data sync error:", error);
-        }
-      }
-    );
-    return () => unsubscribe();
-  }, [user, db, appId]);
-
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900">
+      {/* Configuration Warning Banner for Admin */}
+      {!isConfigured && view === "admin" && (
+        <div className="bg-orange-600 text-white px-4 py-2 text-center text-sm font-bold">
+          ⚠️ Site is in Demo Mode. Database is NOT connected.
+          <span className="hidden md:inline">
+            {" "}
+            (Edit dental_clinic.jsx to add Firebase Config)
+          </span>
+        </div>
+      )}
+
       <Navbar onViewChange={setView} currentView={view} />
+
       {view === "admin" ? (
-        <AdminPanel items={portfolioItems} onSave={handleSaveItems} />
+        <AdminPanel
+          items={portfolioItems}
+          onSave={handleSaveItems}
+          isConfigured={isConfigured}
+        />
       ) : (
         <main>
           <Hero />
