@@ -35,6 +35,52 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
 
+// --- Error Boundary Component ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("App Crash:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-6 text-center">
+          <div className="bg-white p-8 rounded-3xl shadow-xl max-w-lg border border-red-100">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Something went wrong
+            </h2>
+            <p className="text-gray-500 mb-6">
+              The application crashed. Error details below:
+            </p>
+            <div className="bg-gray-900 text-red-300 p-4 rounded-xl text-left text-xs font-mono overflow-auto mb-6 max-h-40">
+              {this.state.error?.toString()}
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-red-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 transition-all"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // --- Data Fallback (Default Data) ---
 const initialPortfolio = [
   {
@@ -874,19 +920,38 @@ const Portfolio = ({ items }) => {
   // Safeguard against non-array items
   const displayItems = Array.isArray(items) ? items : [];
 
-  const handleShare = (item) => {
-    // Simulating a shareable link
-    const text = `Check out this amazing ${item.title} result from City Smile Dental Clinic!`;
-    if (navigator.share) {
-      navigator
-        .share({
-          title: item.title,
-          text: text,
-          url: window.location.href,
-        })
-        .catch(console.error);
-    } else {
-      navigator.clipboard.writeText(`${text} ${window.location.href}`);
+  const handleShare = async (item) => {
+    const shareData = {
+      title: item.title,
+      text: `Check out this amazing ${item.title} result from City Smile Dental Clinic! ${window.location.href}`, // Updated
+      url: window.location.href,
+    };
+
+    try {
+      // 1. Fetch the image from the URL
+      const response = await fetch(item.img);
+      const blob = await response.blob();
+
+      // 2. Create a File object from the blob
+      // 'smile.jpg' is the file name the user will see
+      const file = new File([blob], "smile.jpg", { type: "image/jpeg" });
+
+      // 3. Check if the browser supports file sharing
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          ...shareData,
+          files: [file],
+        });
+      } else {
+        // Fallback: If file sharing not supported, share just the link/text
+        await navigator.share(shareData);
+      }
+    } catch (error) {
+      console.log("Sharing failed (likely desktop or CORS):", error);
+      // Fallback: Copy link to clipboard
+      navigator.clipboard.writeText(
+        `${shareData.text} ${window.location.href}`
+      );
       setShareMsg("Link Copied!");
       setTimeout(() => setShareMsg(""), 2000);
     }
@@ -1431,47 +1496,51 @@ const DentalClinic = () => {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900">
-      {/* Configuration Warning Banner for Admin */}
-      {!isConfigured && view === "admin" && (
-        <div className="bg-red-600 text-white px-4 py-2 text-center text-sm font-bold">
-          ⚠️ Database Not Connected.
-          {authError && <span className="block text-xs mt-1">{authError}</span>}
-        </div>
-      )}
+      <ErrorBoundary>
+        {/* Configuration Warning Banner for Admin */}
+        {!isConfigured && view === "admin" && (
+          <div className="bg-red-600 text-white px-4 py-2 text-center text-sm font-bold">
+            ⚠️ Database Not Connected.
+            {authError && (
+              <span className="block text-xs mt-1">{authError}</span>
+            )}
+          </div>
+        )}
 
-      {/* GLOBAL ERROR BANNER FOR GITHUB PAGES DEBUGGING - ADDED BY AI */}
-      {!isConfigured && authError && view !== "admin" && (
-        <div className="fixed bottom-0 left-0 right-0 bg-red-600 text-white p-4 text-center text-sm font-bold z-[100] shadow-lg flex items-center justify-center gap-2">
-          <AlertTriangle className="w-5 h-5" />
-          <span>Connection Error: {authError}</span>
-          <button
-            onClick={() => setView("admin")}
-            className="underline ml-2 bg-white/20 px-2 py-1 rounded"
-          >
-            Fix Now
-          </button>
-        </div>
-      )}
+        {/* GLOBAL ERROR BANNER FOR GITHUB PAGES DEBUGGING - ADDED BY AI */}
+        {!isConfigured && authError && view !== "admin" && (
+          <div className="fixed bottom-0 left-0 right-0 bg-red-600 text-white p-4 text-center text-sm font-bold z-[100] shadow-lg flex items-center justify-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            <span>Connection Error: {authError}</span>
+            <button
+              onClick={() => setView("admin")}
+              className="underline ml-2 bg-white/20 px-2 py-1 rounded"
+            >
+              Fix Now
+            </button>
+          </div>
+        )}
 
-      <Navbar onViewChange={setView} currentView={view} />
+        <Navbar onViewChange={setView} currentView={view} />
 
-      {view === "admin" ? (
-        <AdminPanel
-          items={portfolioItems}
-          onSave={handleSaveItems}
-          isConfigured={isConfigured}
-          authError={authError}
-        />
-      ) : (
-        <main>
-          <Hero />
-          <About />
-          <Services />
-          <Portfolio items={portfolioItems} />
-          <Contact />
-        </main>
-      )}
-      {view !== "admin" && <Footer />}
+        {view === "admin" ? (
+          <AdminPanel
+            items={portfolioItems}
+            onSave={handleSaveItems}
+            isConfigured={isConfigured}
+            authError={authError}
+          />
+        ) : (
+          <main>
+            <Hero />
+            <About />
+            <Services />
+            <Portfolio items={portfolioItems} />
+            <Contact />
+          </main>
+        )}
+        {view !== "admin" && <Footer />}
+      </ErrorBoundary>
     </div>
   );
 };
