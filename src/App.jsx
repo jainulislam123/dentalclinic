@@ -28,6 +28,7 @@ import {
   Upload,
   AlertTriangle,
   Info,
+  LogIn,
 } from "lucide-react";
 
 // --- Firebase Imports ---
@@ -669,15 +670,27 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5">
-              <button className="flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-full font-bold hover:bg-slate-800 transition-all hover:gap-4 shadow-xl shadow-slate-200 hover:shadow-2xl active:scale-95">
-                <a href="https://maps.app.goo.gl/dNYSmq6yjmxPgjCn9">
+              <a
+                className="flex items-center justify-center gap-2 bg-slate-900 text-white px-18 py-4 rounded-full font-bold hover:bg-slate-800 transition-all hover:gap-4 shadow-xl shadow-slate-200 hover:shadow-2xl active:scale-95"
+                href="https://maps.app.goo.gl/dNYSmq6yjmxPgjCn9"
+                target="blank"
+              >
+                {" "}
+                <button className="flex items-center gap-2">
                   Book Visit
-                </a>{" "}
-                <ArrowRight className="w-5 h-5" />
-              </button>
-              <button className="flex items-center justify-center gap-2 bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-full font-bold hover:border-teal-500 hover:text-teal-600 transition-all shadow-sm hover:shadow-md active:scale-95">
-                View Portfolio
-              </button>
+                  <ArrowRight className="w-5 h-5" />
+                </button>{" "}
+              </a>
+              <a
+                className="flex items-center justify-center gap-2 bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-full font-bold hover:border-teal-500 hover:text-teal-600 transition-all shadow-sm hover:shadow-md active:scale-95"
+                href="https://wa.me/8918796858"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <button className="flex items-center gap-2">
+                  Connect to Whatsapp <LogIn />
+                </button>
+              </a>
             </div>
           </motion.div>
 
@@ -919,39 +932,19 @@ const Portfolio = ({ items }) => {
 
   // Safeguard against non-array items
   const displayItems = Array.isArray(items) ? items : [];
-
-  const handleShare = async (item) => {
-    const shareData = {
-      title: item.title,
-      text: `Check out this amazing ${item.title} result from City Smile Dental Clinic! ${window.location.href}`, // Updated
-      url: window.location.href,
-    };
-
-    try {
-      // 1. Fetch the image from the URL
-      const response = await fetch(item.img);
-      const blob = await response.blob();
-
-      // 2. Create a File object from the blob
-      // 'smile.jpg' is the file name the user will see
-      const file = new File([blob], "smile.jpg", { type: "image/jpeg" });
-
-      // 3. Check if the browser supports file sharing
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          ...shareData,
-          files: [file],
-        });
-      } else {
-        // Fallback: If file sharing not supported, share just the link/text
-        await navigator.share(shareData);
-      }
-    } catch (error) {
-      console.log("Sharing failed (likely desktop or CORS):", error);
-      // Fallback: Copy link to clipboard
-      navigator.clipboard.writeText(
-        `${shareData.text} ${window.location.href}`
-      );
+  const handleShare = (item) => {
+    // Simulating a shareable link
+    const text = `Check out this amazing ${item.title} result from City Smile Dental Clinic!`;
+    if (navigator.share) {
+      navigator
+        .share({
+          title: item.title,
+          text: text,
+          url: window.location.href,
+        })
+        .catch(console.error);
+    } else {
+      navigator.clipboard.writeText(`${text} ${window.location.href}`);
       setShareMsg("Link Copied!");
       setTimeout(() => setShareMsg(""), 2000);
     }
@@ -1039,7 +1032,7 @@ const Contact = () => {
     const formData = new FormData(event.target);
 
     try {
-      const response = await fetch("https://formspree.io/f/manrppno", {
+      const response = await fetch("", {
         method: "POST",
         body: formData,
         headers: { Accept: "application/json" },
@@ -1129,8 +1122,8 @@ const Contact = () => {
                       Visit Us
                     </p>
                     <p className="text-xl font-bold group-hover:text-teal-400 transition-colors">
-                      Buniadpur, New Bustand Beside Popular Drag House, Dakshin
-                      Dinajpur, 733121
+                      Buniadpur, New Bus Stand Beside Popular Drag House,
+                      Dakshin Dinajpur, 733121
                     </p>
                   </div>
                 </div>
