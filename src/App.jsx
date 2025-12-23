@@ -321,8 +321,8 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 500000) {
-        alert("File too large! Please use an image smaller than 500KB.");
+      if (file.size > 5000000) {
+        alert("File too large! Please use an image smaller than 5MB");
         return;
       }
       const reader = new FileReader();
@@ -336,8 +336,8 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
   const handleEditImageUpload = (e, id) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 500000) {
-        alert("File too large! Please use an image smaller than 500KB.");
+      if (file.size > 5000000) {
+        alert("File too large! Please use an image smaller than 5MB.");
         return;
       }
       const reader = new FileReader();
