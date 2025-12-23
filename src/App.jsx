@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Info,
   LogIn,
+  Link as LinkIcon,
 } from "lucide-react";
 
 // --- Firebase Imports ---
@@ -493,7 +494,7 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
               }
             />
 
-            {/* Image Upload */}
+            {/* Image Selection Area */}
             <div className="flex flex-col gap-2">
               <div className="relative">
                 <input
@@ -505,11 +506,36 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
                 />
                 <label
                   htmlFor="file-upload"
-                  className="flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors text-slate-500 text-sm h-[42px]"
+                  className="flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors text-slate-500 text-sm h-[42px] overflow-hidden"
                 >
                   <Upload className="w-4 h-4" />
-                  {newItem.img ? "Image Selected" : "Upload Image"}
+                  {newItem.img
+                    ? newItem.img.startsWith("data:")
+                      ? "Image Uploaded"
+                      : "Image Linked"
+                    : "Upload Image"}
                 </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 font-bold uppercase">
+                  OR
+                </span>
+                <div className="relative flex-1">
+                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Paste Image URL..."
+                    className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                    value={
+                      newItem.img && !newItem.img.startsWith("data:")
+                        ? newItem.img
+                        : ""
+                    }
+                    onChange={(e) =>
+                      setNewItem({ ...newItem, img: e.target.value })
+                    }
+                  />
+                </div>
               </div>
             </div>
 
@@ -566,21 +592,43 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
                       }}
                     />
 
-                    {/* Edit Image Upload */}
-                    <div className="relative">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        id={`edit-file-${item.id}`}
-                        className="hidden"
-                        onChange={(e) => handleEditImageUpload(e, item.id)}
-                      />
-                      <label
-                        htmlFor={`edit-file-${item.id}`}
-                        className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded cursor-pointer hover:bg-slate-50 text-xs text-slate-500"
-                      >
-                        <Upload className="w-3 h-3" /> Change Image
-                      </label>
+                    {/* Edit Image Options */}
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id={`edit-file-${item.id}`}
+                          className="hidden"
+                          onChange={(e) => handleEditImageUpload(e, item.id)}
+                        />
+                        <label
+                          htmlFor={`edit-file-${item.id}`}
+                          className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded cursor-pointer hover:bg-slate-50 text-xs text-slate-500 w-full"
+                        >
+                          <Upload className="w-3 h-3" /> Upload New File
+                        </label>
+                      </div>
+                      <div className="relative">
+                        <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                        <input
+                          className="w-full border pl-7 pr-2 py-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          placeholder="Or Paste Link"
+                          value={
+                            item.img && !item.img.startsWith("data:")
+                              ? item.img
+                              : ""
+                          }
+                          onChange={(e) => {
+                            const newItems = safeItems.map((i) =>
+                              i.id === item.id
+                                ? { ...i, img: e.target.value }
+                                : i
+                            );
+                            onSave(newItems);
+                          }}
+                        />
+                      </div>
                     </div>
 
                     <button
@@ -1312,7 +1360,7 @@ const Footer = () => (
         </p>
         <p className="text-slate-400 text-sm flex items-center gap-1">
           Developed by <span className="text-red-400">♥</span> for{" "}
-          <a href="https://jaihosolution.website2.me/">Jaihosolution</a>
+          <a href="https://jaihosolution.netlify.app/">Jaihosolution</a>
         </p>
       </div>
     </div>
