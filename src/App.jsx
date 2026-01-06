@@ -89,7 +89,7 @@ const initialPortfolio = [
     id: 1,
     title: "Veneers",
     subtitle: "Cosmetic",
-    img: "https://i.postimg.cc/brmHM73W/unnamed.jpg",
+    img: "https://i.postimg.cc/RZMRZZ3v/Whats_App_Image_2025_12_15_at_6_28_36_PM.jpg",
   },
   {
     id: 2,
@@ -393,6 +393,7 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
           <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="password"
+              autocomplete="current-password"
               placeholder="Enter PIN (1234)"
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-teal-500 outline-none"
               value={password}
