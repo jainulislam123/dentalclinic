@@ -89,11 +89,7 @@ const initialPortfolio = [
     id: 1,
     title: "Veneers",
     subtitle: "Cosmetic",
-<<<<<<< HEAD
-    img: "https://i.postimg.cc/vTvDbdh3/Gemini_Generated_Image_oxyrnyoxyrnyoxyr.png",
-=======
     img: "https://i.postimg.cc/RZMRZZ3v/Whats_App_Image_2025_12_15_at_6_28_36_PM.jpg",
->>>>>>> 928bcd59fceea99d7b19468d91ffcb08050c9738
   },
   {
     id: 2,
