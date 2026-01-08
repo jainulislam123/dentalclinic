@@ -89,13 +89,13 @@ const initialPortfolio = [
     id: 1,
     title: "Veneers",
     subtitle: "Cosmetic",
-    img: "https://i.postimg.cc/brmHM73W/unnamed.jpg",
+    img: "https://i.postimg.cc/vTvDbdh3/Gemini_Generated_Image_oxyrnyoxyrnyoxyr.png",
   },
   {
     id: 2,
     title: "Whitening",
     subtitle: "Brightening",
-    img: "https://i.postimg.cc/sDKKMJ1M/Whiting.png",
+    img: "https://i.postimg.cc/RZMRZZ3v/Whats_App_Image_2025_12_15_at_6_28_36_PM.jpg",
   },
   {
     id: 3,
@@ -394,6 +394,7 @@ const AdminPanel = ({ items, onSave, isConfigured, authError }) => {
             <input
               type="password"
               placeholder="Enter PIN (1234)"
+              autocomplete="current-password"
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-teal-500 outline-none"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -836,9 +837,14 @@ const About = () => {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
-            <span className="text-teal-500 font-bold tracking-wider uppercase bg-teal-50 px-3 py-1 rounded-full text-2xl">
-              With Dr. Tofajjal Hossain And team
+            <span className="text-teal-500 font-bold tracking-wider uppercase bg-teal-50 px-3 py-1 rounded-full text-3xl">
+              Dr. Tofajjal Hossain
+              <span className="text-xl">(BDS , KOLKATA)</span>
             </span>
+            <p className="text-2xl pt-1 px-2.5 font-bold">
+              Oral and Dental Surgeon, Certified Implantologist, Reg no -8204 A
+            </p>
+            <hr />
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-6 mb-6">
               Your Trusted Dental Care Partner in Buniadpur
             </h2>
